@@ -1,5 +1,6 @@
 import { supabase } from "./utils/supabase";
 import { useEffect, useState } from "react";
+import { toast } from "react-hot-toast"
 import Sidebar from "./Sidebar";
 
 export interface UserProfile {
@@ -83,10 +84,10 @@ export default function Profile({ setIsNewUser, isNewUser }: { setIsNewUser: (va
             .upsert(profile);
 
         if (error) {
-            console.error("Error: ", error.message);
+            toast.error("An Error Occured!");
         } else {
             setIsNewUser(false);
-            alert("Profile Saved Successfully!");
+            toast.success("Profile Saved Successfully!");
         }
     };
 

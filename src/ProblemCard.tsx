@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from './utils/supabase';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'react-hot-toast';
 
 interface Problems {
     id: string;
@@ -30,7 +31,7 @@ export default function ProblemCard({ problem }: ProblemCardProps) {
     const getRequestStatus = async (problemId: string, developerId: string) => {
         const { data, error } = await supabase.from("contact_requests").select("status").eq("problem_id", problemId).eq("developer_id", developerId).maybeSingle();
         if (error) {
-            alert("Error: " + error.message);
+            toast.error("Error: " + error.message);
         } else {
             setRequestStatus(data?.status ?? null);
         }
@@ -39,7 +40,7 @@ export default function ProblemCard({ problem }: ProblemCardProps) {
     const getUserName = async (userId: string) => {
         const { data, error } = await supabase.from("profiles").select("full_name").eq("id", userId).single();
         if (error) {
-            alert("Error: " + error.message);
+            toast.error("Error: " + error.message);
         } else {
             return data.full_name;
         }
@@ -49,11 +50,11 @@ export default function ProblemCard({ problem }: ProblemCardProps) {
         const getUser = async () => {
             const { data: { user }, error } = await supabase.auth.getUser();
             if (error) {
-                alert("Error: " + error.message);
+                toast.error("Error: " + error.message);
             } else {
                 const { data, error } = await supabase.from("profiles").select("user_type").eq("id", user?.id).maybeSingle();
                 if (error) {
-                    alert("Error: " + error.message);
+                    toast.error("Error: " + error.message);
                 } else {
                     if (data) {
                         setIsClient(data.user_type === "client");
@@ -72,7 +73,7 @@ export default function ProblemCard({ problem }: ProblemCardProps) {
     const handleShowContact = async (userId: string) => {
         const { data, error } = await supabase.from("profiles").select("contact_email, phone").eq("id", userId).single();
         if (error) {
-            alert("Error: " + error.message);
+            toast.error("Error: " + error.message);
         } else {
             setContactInfo({ email: data.contact_email, phone: data.phone });
         }
@@ -82,7 +83,7 @@ export default function ProblemCard({ problem }: ProblemCardProps) {
         const { data: { user }, error: userError } = await supabase.auth.getUser();
 
         if (userError || !user) {
-            alert("Please login to contact.");
+            toast.error("Please login to contact.");
             return;
         }
 
@@ -94,9 +95,9 @@ export default function ProblemCard({ problem }: ProblemCardProps) {
         })
 
         if (error) {
-            alert("Error requesting contact: " + error.message);
+            toast.error("Error requesting contact: " + error.message);
         } else {
-            alert("Contact request sent successfully!");
+            toast.success("Contact request sent successfully!");
             setRequestStatus("pending");
         }
     }

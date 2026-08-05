@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { supabase } from "./utils/supabase";
 import { useNavigate } from "react-router-dom";
+import { toast } from "react-hot-toast";
 import Sidebar from "./Sidebar";
 
 export default function SubmitProblem() {
@@ -11,7 +12,7 @@ export default function SubmitProblem() {
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
-        console.log("Problem Submitted: ", problem);
+        toast.success("Problem Submitted Successfully!");
         setLoading(true);
         setError(null);
         const response = await supabase.functions.invoke("process-problem", { body: { problem } });

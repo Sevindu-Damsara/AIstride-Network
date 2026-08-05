@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "./utils/supabase";
 import ProblemCard from "./ProblemCard";
 import Sidebar from "./Sidebar";
+import { toast } from "react-hot-toast";
 
 export default function Marketplace() {
     const [problems, setProblems] = useState<any[]>([]);
@@ -12,7 +13,7 @@ export default function Marketplace() {
         const fetchProblems = async () => {
             const { data, error } = await supabase.from("problems").select("*");
             if (error) {
-                console.error("Error fetching problems:", error);
+                toast.error("Error fetching problems!");
             } else {
                 setProblems(data || []);
             }

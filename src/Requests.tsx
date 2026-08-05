@@ -1,6 +1,7 @@
 import { supabase } from "./utils/supabase";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { toast } from "react-hot-toast";
 import Sidebar from "./Sidebar";
 
 export default function Requests() {
@@ -12,7 +13,7 @@ export default function Requests() {
     const handleUpdateStatus = async (requestId: string, status: "approved" | "declined") => {
         const { error } = await supabase.from("contact_requests").update({ status }).eq("id", requestId);
         if (error) {
-            console.error("Error updating status:", error);
+            toast.error("An Error Occured while updating status");
         } else {
             setData(data.map((request) => request.id === requestId ? { ...request, status } : request));
         }
@@ -23,7 +24,7 @@ export default function Requests() {
         const fetchRequests = async () => {
             const { data: { user }, error: userError } = await supabase.auth.getUser();
             if (userError) {
-                alert("Please login to view requests.");
+                toast.error("Please login to view requests.");
                 navigate('/login');
             }
             setUser(user?.id);
@@ -37,7 +38,7 @@ export default function Requests() {
                 `)
                 .or(`client_id.eq.${user?.id},developer_id.eq.${user?.id}`);
             if (error) {
-                console.error("Error fetching requests:", error);
+                toast.error("An Error Occured while fetching requests");
             } else {
                 setData(data || []);
             }

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useLocation } from "react-router-dom";
 import { supabase } from "./utils/supabase";
+import { toast } from "react-hot-toast";
 import Sidebar from "./Sidebar";
 
 function toText(value: any): string {
@@ -27,20 +28,20 @@ export default function PostProblem() {
         console.log("Explanation: ", explanation);
 
         if (!showEmail && !showPhone) {
-            alert("Please select at least one contact method (Email or Phone) to share.");
+            toast.error("Please select at least one contact method (Email or Phone) to share.");
             return;
         }
 
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
-            alert("You must be logged in to post");
+            toast.error("You must be logged in to post");
             return;
         }
         const { error } = await supabase.from("problems").insert({ title, summary, solution, explanation, user_id: user.id, show_email: showEmail, show_phone: showPhone, contact_request: contactRequest });
         if (error) {
-            alert("An error occurred: " + error.message);
+            toast.error("An error occurred: " + error.message);
         } else {
-            alert("Problem posted successfully!");
+            toast.success("Problem posted successfully!");
         }
     };
     return (

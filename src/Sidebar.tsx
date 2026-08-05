@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from './utils/supabase'
 import { useNavigate } from 'react-router-dom'
+import { toast } from 'react-hot-toast'
 
 export default function Sidebar() {
     const [showMenu, setShowMenu] = useState(false);
@@ -11,7 +12,7 @@ export default function Sidebar() {
         const getUser = async () => {
             const { data: { user }, error } = await supabase.auth.getUser();
             if (error) {
-                console.error("Error: " + error.message);
+                toast.error("An Error Occured");
                 setIsLoggedIn(false);
             } else {
                 setIsLoggedIn(true);

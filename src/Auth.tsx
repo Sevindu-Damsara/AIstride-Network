@@ -1,31 +1,33 @@
 import { useState } from "react";
 import { supabase } from "./utils/supabase";
 import { useNavigate } from "react-router-dom";
+import { toast } from "react-hot-toast";
 
 export default function Auth() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
     const [isSignUp, setIsSignUp] = useState(false);
     const navigate = useNavigate();
 
     const handleAuth = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         setLoading(true);
-        setError(null);
 
         if (isSignUp) {
             const { error } = await supabase.auth.signUp({ email, password });
-            if (error) setError(error.message);
+            if (error) {
+                toast.error(error.message);
+            }
             else {
-                alert("Check your email for a confirmation link!");
+                toast.success("Check your email for a confirmation link!");
             }
         }
         else {
             const { error } = await supabase.auth.signInWithPassword({ email, password });
-            if (error) setError(error.message);
+            if (error) toast.error(error.message);
             else {
+                toast.success("Logged in successfully!");
                 navigate("/", { replace: true });
             }
         }
@@ -39,7 +41,6 @@ export default function Auth() {
                 <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" required />
                 <button type="submit" disabled={loading}>{loading ? "Loading..." : isSignUp ? "Sign Up" : "Log In"}</button>
             </form>
-            {error && <p style={{ color: "red" }}>{"An Error Occured: " + error}</p>}
             <button onClick={() => setIsSignUp(!isSignUp)}>{isSignUp ? "Already have an account? Log In" : "Don't have an account? Sign Up"}</button>
         </div>
     );
