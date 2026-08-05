@@ -225,6 +225,7 @@
 .requests-container {
   border-radius: 7px;
   padding: 5px;
+  margin: auto;
   border: 1px solid var(--accent-border);
   width: 90%;
   height: 90%;

@@ -28,7 +28,7 @@ export default function App() {
 
   useEffect(() => {
     const checkUserProfile = async (userId: string) => {
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('profiles')
         .select('id')
         .eq('id', userId)
@@ -45,7 +45,6 @@ export default function App() {
     }
   }, [session]);
 
-  const [aiResult, setAiResult] = useState<any | null>(null);
   return (
     <BrowserRouter>
       <Routes>

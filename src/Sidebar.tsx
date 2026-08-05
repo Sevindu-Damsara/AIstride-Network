@@ -3,7 +3,6 @@ import { supabase } from './utils/supabase'
 import { useNavigate } from 'react-router-dom'
 
 export default function Sidebar() {
-    const [user, setUser] = useState<any>(null);
     const [showMenu, setShowMenu] = useState(false);
     const [isLoggedIn, setIsLoggedIn] = useState(false);
     const navigate = useNavigate();
@@ -15,7 +14,6 @@ export default function Sidebar() {
                 console.error("Error: " + error.message);
                 setIsLoggedIn(false);
             } else {
-                setUser(user);
                 setIsLoggedIn(true);
             }
             if (user === null) {

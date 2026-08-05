@@ -32,7 +32,7 @@ export default function ProblemCard({ problem }: ProblemCardProps) {
         if (error) {
             alert("Error: " + error.message);
         } else {
-            setRequestStatus(data.status);
+            setRequestStatus(data?.status ?? null);
         }
     }
 
@@ -55,8 +55,12 @@ export default function ProblemCard({ problem }: ProblemCardProps) {
                 if (error) {
                     alert("Error: " + error.message);
                 } else {
-                    setIsClient(data.user_type === "client");
-                    getRequestStatus(problem.id, user.id);
+                    if (data) {
+                        setIsClient(data.user_type === "client");
+                    }
+                    if (user) {
+                        getRequestStatus(problem.id, user.id);
+                    }
                 }
                 getUserName(problem.user_id).then((name) => setUserName(name));
             }
@@ -77,7 +81,7 @@ export default function ProblemCard({ problem }: ProblemCardProps) {
     const handleRequestContact = async (problemId: string, clientId: string) => {
         const { data: { user }, error: userError } = await supabase.auth.getUser();
 
-        if (userError) {
+        if (userError || !user) {
             alert("Please login to contact.");
             return;
         }

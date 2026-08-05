@@ -78,7 +78,7 @@ export default function Profile({ setIsNewUser, isNewUser }: { setIsNewUser: (va
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
-        const { data, error } = await supabase
+        const { error } = await supabase
             .from('profiles')
             .upsert(profile);
 
