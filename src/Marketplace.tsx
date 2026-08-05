@@ -22,7 +22,9 @@ export default function Marketplace() {
     }, []);
 
     if (loading) {
-        return <div style={{ textAlign: "center", justifyContent: "center", color: "red" }}><h3>Loading...</h3></div>;
+        return <div style={{ textAlign: "center", justifyContent: "center" }}>
+            <h3 style={{ color: "var(--accent-border)" }}>Loading...</h3>
+        </div>;
     }
 
     return (
