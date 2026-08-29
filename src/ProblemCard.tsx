@@ -26,54 +26,44 @@ export default function ProblemCard({ problem }: ProblemCardProps) {
     const [isClient, setIsClient] = useState<boolean>(false);
     const [requestStatus, setRequestStatus] = useState<"pending" | "approved" | "declined" | null>(null);
     const [userName, setUserName] = useState<string>("");
+    const [currentUserId, setCurrentUserId] = useState<string | null>(null);
     const navigate = useNavigate();
 
     const getRequestStatus = async (problemId: string, developerId: string) => {
         const { data, error } = await supabase.from("contact_requests").select("status").eq("problem_id", problemId).eq("developer_id", developerId).maybeSingle();
-        if (error) {
-            toast.error("Error: " + error.message);
-        } else {
+        if (!error) {
             setRequestStatus(data?.status ?? null);
         }
     }
 
     const getUserName = async (userId: string) => {
-        const { data, error } = await supabase.from("profiles").select("full_name").eq("id", userId).single();
-        if (error) {
-            toast.error("Error: " + error.message);
-        } else {
+        const { data, error } = await supabase.from("profiles").select("full_name").eq("id", userId).maybeSingle();
+        if (!error && data) {
             return data.full_name;
         }
+        return "Anonymous Client";
     }
 
     useEffect(() => {
         const getUser = async () => {
-            const { data: { user }, error } = await supabase.auth.getUser();
-            if (error) {
-                toast.error("Error: " + error.message);
-            } else {
-                const { data, error } = await supabase.from("profiles").select("user_type").eq("id", user?.id).maybeSingle();
-                if (error) {
-                    toast.error("Error: " + error.message);
-                } else {
-                    if (data) {
-                        setIsClient(data.user_type === "client");
-                    }
-                    if (user) {
-                        getRequestStatus(problem.id, user.id);
-                    }
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                setCurrentUserId(user.id);
+                const { data } = await supabase.from("profiles").select("user_type").eq("id", user.id).maybeSingle();
+                if (data) {
+                    setIsClient(data.user_type === "client");
                 }
-                getUserName(problem.user_id).then((name) => setUserName(name));
+                getRequestStatus(problem.id, user.id);
             }
+            getUserName(problem.user_id).then((name) => setUserName(name));
         }
         getUser();
-    }, []);
-
+    }, [problem.id, problem.user_id]);
 
     const handleShowContact = async (userId: string) => {
         const { data, error } = await supabase.from("profiles").select("contact_email, phone").eq("id", userId).single();
         if (error) {
-            toast.error("Error: " + error.message);
+            toast.error("Error fetching contact details");
         } else {
             setContactInfo({ email: data.contact_email, phone: data.phone });
         }
@@ -92,7 +82,7 @@ export default function ProblemCard({ problem }: ProblemCardProps) {
             client_id: clientId,
             developer_id: user.id,
             status: "pending"
-        })
+        });
 
         if (error) {
             toast.error("Error requesting contact: " + error.message);
@@ -102,48 +92,86 @@ export default function ProblemCard({ problem }: ProblemCardProps) {
         }
     }
 
+    const isAuthor = currentUserId === problem.user_id;
+
     return (
         <div className="problem-card">
             <h3>{problem.title}</h3>
-            <button onClick={() => setIsExpanded(true)} className="buttons">Show more</button>
+            <p className="problem-summary-preview">{problem.summary}</p>
+            <button onClick={() => setIsExpanded(true)} className="buttons">Show details</button>
+
             {isExpanded && (
                 <div className="modal-overlay" onClick={() => setIsExpanded(false)}>
                     <div className="modal-content" onClick={(e) => e.stopPropagation()}>
                         <button onClick={() => setIsExpanded(false)} className="close-button">✖</button>
                         <div className="problem-details">
-                            <p><strong>{problem.title}</strong></p>
+                            <h2>{problem.title}</h2>
                             <p><strong>Summary: </strong>{problem.summary}</p>
                             <p><strong>Explanation: </strong>{problem.explanation}</p>
                             <p><strong>Solution: </strong>{problem.solution}</p>
                         </div>
-                        <p>Posted by: {problem.user_id}</p>
-                        <p>Posted at: {problem.created_at}</p>
-                        {!isClient && (
-                            <div>
-                                {problem.contact_request && (
+                        <p style={{ marginTop: '12px', fontSize: '0.9em', color: '#94a3b8' }}>
+                            Posted by: <strong>{userName || "Client"}</strong> | Posted on: {new Date(problem.created_at).toLocaleDateString()}
+                        </p>
+                        
+                        {isAuthor ? (
+                            <p style={{ marginTop: '15px', color: '#38bdf8', fontStyle: 'italic' }}>
+                                This is your submitted problem.
+                            </p>
+                        ) : !isClient && (
+                            <div style={{ marginTop: '15px' }}>
+                                {problem.contact_request ? (
                                     <div>
-                                        {requestStatus === null && <button onClick={() => handleRequestContact(problem.id, problem.user_id)}>Request Contact</button>}
-                                        {requestStatus === "pending" && <div><p>Request already sent</p><button onClick={() => navigate("/requests")} className='buttons'>Visit Requests Page</button></div>}
-                                        {requestStatus === "approved" && <div><p>Contact approved</p><button onClick={() => navigate("/requests")} className='buttons'>Visit Requests Page</button><button onClick={() => contactInfo ? setContactInfo(null) : handleShowContact(problem.user_id)} className='buttons'>{contactInfo ? "Hide" : "Show"} Contact</button></div>}
-                                        {requestStatus === "declined" && <div><p>Contact declined</p><button onClick={() => navigate("/requests")} className='buttons'>Visit Requests Page</button></div>}
+                                        {requestStatus === null && (
+                                            <button className="button" onClick={() => handleRequestContact(problem.id, problem.user_id)}>
+                                                Request Contact
+                                            </button>
+                                        )}
+                                        {requestStatus === "pending" && (
+                                            <div>
+                                                <p>Request pending approval from client.</p>
+                                                <button onClick={() => navigate("/requests")} className='buttons'>Visit Requests Page</button>
+                                            </div>
+                                        )}
+                                        {requestStatus === "approved" && (
+                                            <div>
+                                                <p style={{ color: '#4ade80' }}>Contact Request Approved!</p>
+                                                <button onClick={() => navigate("/requests")} className='buttons' style={{ marginRight: '8px' }}>
+                                                    Visit Requests Page
+                                                </button>
+                                                <button onClick={() => contactInfo ? setContactInfo(null) : handleShowContact(problem.user_id)} className='buttons'>
+                                                    {contactInfo ? "Hide" : "Show"} Contact
+                                                </button>
+                                            </div>
+                                        )}
+                                        {requestStatus === "declined" && (
+                                            <div>
+                                                <p style={{ color: '#f87171' }}>Contact Request Declined.</p>
+                                                <button onClick={() => navigate("/requests")} className='buttons'>Visit Requests Page</button>
+                                            </div>
+                                        )}
                                     </div>
-                                )}
-
-                                {problem.contact_request === false && (
-                                    <button onClick={() => contactInfo ? setContactInfo(null) : handleShowContact(problem.user_id)} className="buttons">{contactInfo ? "Hide" : "Show"} Contact</button>
+                                ) : (
+                                    <button onClick={() => contactInfo ? setContactInfo(null) : handleShowContact(problem.user_id)} className="buttons">
+                                        {contactInfo ? "Hide" : "Show"} Contact
+                                    </button>
                                 )}
 
                                 {contactInfo && (
-                                    <div>
+                                    <div style={{ marginTop: '12px', padding: '10px', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '6px' }}>
                                         <p><strong>Client Name: </strong>{userName}</p>
-                                        <p><strong>Email: </strong>{contactInfo.email}</p>
-                                        <p><strong>Phone: </strong>{contactInfo.phone}</p>
+                                        {problem.show_email && contactInfo.email ? (
+                                            <p><strong>Email: </strong>{contactInfo.email}</p>
+                                        ) : null}
+                                        {problem.show_phone && contactInfo.phone ? (
+                                            <p><strong>Phone: </strong>{contactInfo.phone}</p>
+                                        ) : null}
+                                        {!problem.show_email && !problem.show_phone && (
+                                            <p style={{ color: '#94a3b8' }}>Client selected not to share public email/phone directly.</p>
+                                        )}
                                     </div>
                                 )}
-
                             </div>
-
-
                         )}
                     </div>
                 </div>

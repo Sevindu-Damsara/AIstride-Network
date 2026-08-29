@@ -9,24 +9,19 @@ export default function Sidebar() {
     const navigate = useNavigate();
 
     useEffect(() => {
-        const getUser = async () => {
-            const { data: { user }, error } = await supabase.auth.getUser();
-            if (error) {
-                toast.error("An Error Occured");
-                setIsLoggedIn(false);
-            } else {
-                setIsLoggedIn(true);
-            }
-            if (user === null) {
-                navigate("/login");
-            }
-        }
-        getUser();
+        supabase.auth.getSession().then(({ data: { session } }) => {
+            setIsLoggedIn(!!session);
+        });
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+            setIsLoggedIn(!!session);
+        });
+        return () => subscription.unsubscribe();
     }, []);
 
     const handleLogout = async () => {
         await supabase.auth.signOut();
         setIsLoggedIn(false);
+        toast.success("Logged out successfully");
         navigate("/login");
     }
     return (
@@ -39,6 +34,7 @@ export default function Sidebar() {
                         <li onClick={() => navigate("/")}>Home</li>
                         {isLoggedIn && <li onClick={() => navigate("/profile")}>My Profile</li>}
                         {isLoggedIn && <li onClick={() => navigate("/submit")}>Submit a Problem</li>}
+                        {isLoggedIn && <li onClick={() => navigate("/myproblems")}>My Problems</li>}
                         {isLoggedIn && <li onClick={() => navigate("/requests")}>My Requests</li>}
                         {isLoggedIn && <li onClick={() => handleLogout()}>Logout</li>}
                         {!isLoggedIn && <li onClick={() => navigate("/login")}>Login</li>}
