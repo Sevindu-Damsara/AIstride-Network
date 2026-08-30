@@ -2,7 +2,9 @@ import { useEffect, useState } from "react";
 import { supabase } from "./utils/supabase";
 import ProblemCard from "./ProblemCard";
 import Sidebar from "./Sidebar";
+import { SkeletonGrid } from "./SkeletonCard";
 import { toast } from "react-hot-toast";
+import { Search, Filter, Layers, RotateCcw, FileQuestion } from "lucide-react";
 
 export default function Marketplace() {
     const [problems, setProblems] = useState<any[]>([]);
@@ -19,7 +21,7 @@ export default function Marketplace() {
                 .order("created_at", { ascending: false });
 
             if (error) {
-                toast.error("Error fetching problems!");
+                toast.error("Error loading marketplace data.");
             } else {
                 setProblems(data || []);
             }
@@ -42,53 +44,78 @@ export default function Marketplace() {
         return true;
     });
 
-    if (loading) {
-        return (
-            <div>
-                <Sidebar />
-                <div className="main" style={{ textAlign: "center", marginTop: "40px" }}>
-                    <h3 style={{ color: "var(--accent-border)" }}>Loading marketplace problems...</h3>
-                </div>
-            </div>
-        );
-    }
-
     return (
         <div>
             <Sidebar />
             <div className="main">
-                <h1>Problems Marketplace</h1>
-                
-                <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", marginBottom: "24px" }}>
-                    <input
-                        type="text"
-                        placeholder="🔍 Search problems by title, keywords..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        style={{ flex: 1, minWidth: "240px", padding: "10px 14px", borderRadius: "8px", border: "1px solid var(--accent-border)", backgroundColor: "rgba(255,255,255,0.05)", color: "white" }}
-                    />
-                    <select
-                        value={filterContactType}
-                        onChange={(e) => setFilterContactType(e.target.value as any)}
-                        style={{ padding: "10px 14px", borderRadius: "8px", border: "1px solid var(--accent-border)", backgroundColor: "#1e293b", color: "white" }}
-                    >
-                        <option value="all">All Contact Methods</option>
-                        <option value="request">Request Required</option>
-                        <option value="direct">Direct Contact</option>
-                    </select>
+                <div className="page-header">
+                    <div className="page-header-text">
+                        <h1>Problems Marketplace</h1>
+                        <p>Discover technical challenges posted by organizations and submit AI-driven solutions.</p>
+                    </div>
+                    {!loading && (
+                        <div className="badge badge-indigo">
+                            <Layers size={14} />
+                            <span>{problems.length} {problems.length === 1 ? "Problem Listed" : "Problems Listed"}</span>
+                        </div>
+                    )}
                 </div>
 
-                {filteredProblems.length === 0 ? (
-                    <div style={{ textAlign: "center", marginTop: "40px", color: "#94a3b8" }}>
-                        <h3>No problems match your search or filter.</h3>
-                        <p>Try adjusting your search query or clear filters.</p>
+                <div className="controls-bar">
+                    <div className="search-input-wrapper">
+                        <div className="search-input-icon">
+                            <Search size={18} />
+                        </div>
+                        <input
+                            type="text"
+                            className="search-input"
+                            placeholder="Search problems by title, keywords, or technology stack..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                        />
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Filter size={16} style={{ color: '#94a3b8' }} />
+                        <select
+                            className="form-select"
+                            value={filterContactType}
+                            onChange={(e) => setFilterContactType(e.target.value as any)}
+                        >
+                            <option value="all">All Contact Protocols</option>
+                            <option value="request">Approval Required</option>
+                            <option value="direct">Direct Contact Allowed</option>
+                        </select>
+                    </div>
+                </div>
+
+                {loading ? (
+                    <SkeletonGrid count={6} />
+                ) : filteredProblems.length === 0 ? (
+                    <div className="empty-state-card">
+                        <div className="empty-state-icon">
+                            <FileQuestion size={24} />
+                        </div>
+                        <h3 style={{ marginBottom: "8px" }}>No matching problems found</h3>
+                        <p style={{ marginBottom: "20px" }}>
+                            No problems match your query. Try broadening your keywords or clearing contact filters.
+                        </p>
+                        {(searchQuery || filterContactType !== "all") && (
+                            <button
+                                className="buttons buttons-secondary"
+                                onClick={() => { setSearchQuery(""); setFilterContactType("all"); }}
+                            >
+                                <RotateCcw size={16} />
+                                <span>Reset Filters</span>
+                            </button>
+                        )}
                     </div>
                 ) : (
-                    <ul className="problems-list">
+                    <div className="problems-grid">
                         {filteredProblems.map((singleProblem) => (
                             <ProblemCard key={singleProblem.id} problem={singleProblem} />
                         ))}
-                    </ul>
+                    </div>
                 )}
             </div>
         </div>

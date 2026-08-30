@@ -1,8 +1,23 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { supabase } from "./utils/supabase";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-hot-toast";
 import Sidebar from "./Sidebar";
+import { SkeletonGrid } from "./SkeletonCard";
+import {
+    Plus,
+    Edit3,
+    Trash2,
+    Calendar,
+    Mail,
+    Phone,
+    Lock,
+    Zap,
+    X,
+    AlertTriangle,
+    FileText
+} from "lucide-react";
 
 export interface Problem {
     id: string;
@@ -37,12 +52,12 @@ export default function MyProblems() {
 
     const navigate = useNavigate();
 
-    const fetchMyProblems = async () => {
+    const fetchMyProblems = useCallback(async () => {
         setLoading(true);
         const { data: { user }, error: userError } = await supabase.auth.getUser();
 
         if (userError || !user) {
-            toast.error("Please login to view your problems.");
+            toast.error("Please log in to manage your problem submissions.");
             navigate("/login");
             return;
         }
@@ -56,16 +71,16 @@ export default function MyProblems() {
             .order("created_at", { ascending: false });
 
         if (error) {
-            toast.error("Error fetching your problems: " + error.message);
+            toast.error("Error fetching submissions: " + error.message);
         } else {
             setProblems(data || []);
         }
         setLoading(false);
-    };
+    }, [navigate]);
 
     useEffect(() => {
         fetchMyProblems();
-    }, []);
+    }, [fetchMyProblems]);
 
     const handleOpenEdit = (problem: Problem) => {
         setEditingProblem(problem);
@@ -105,9 +120,9 @@ export default function MyProblems() {
         setSaving(false);
 
         if (error) {
-            toast.error("Error updating problem: " + error.message);
+            toast.error("Error updating submission: " + error.message);
         } else {
-            toast.success("Problem updated successfully!");
+            toast.success("Submission updated successfully.");
             setEditingProblem(null);
             fetchMyProblems();
         }
@@ -126,9 +141,9 @@ export default function MyProblems() {
         setDeleting(false);
 
         if (error) {
-            toast.error("Error deleting problem: " + error.message);
+            toast.error("Error deleting submission: " + error.message);
         } else {
-            toast.success("Problem deleted successfully!");
+            toast.success("Submission deleted successfully.");
             setProblems((prev) => prev.filter((p) => p.id !== deletingProblem.id));
             setDeletingProblem(null);
         }
@@ -138,141 +153,177 @@ export default function MyProblems() {
         <div>
             <Sidebar />
             <div className="main">
-                <div className="my-problems-header">
-                    <h1>My Problems</h1>
+                <div className="page-header">
+                    <div className="page-header-text">
+                        <h1>My Submissions</h1>
+                        <p>Manage, modify, or remove your submitted problem statements and track communication protocols.</p>
+                    </div>
                     <button
-                        className="button submit-new-btn"
+                        className="buttons"
                         onClick={() => navigate("/submit")}
                     >
-                        ➕ Submit New Problem
+                        <Plus size={16} />
+                        <span>Submit New Problem</span>
                     </button>
                 </div>
 
                 {loading ? (
-                    <div style={{ textAlign: "center", marginTop: "40px" }}>
-                        <h3 style={{ color: "var(--accent-border)" }}>Loading your problems...</h3>
-                    </div>
+                    <SkeletonGrid count={3} />
                 ) : problems.length === 0 ? (
-                    <div className="empty-problems-container">
-                        <p className="empty-text">You haven't submitted any problems yet.</p>
-                        <button className="button" onClick={() => navigate("/submit")}>
-                            Submit Your First Problem
+                    <div className="empty-state-card">
+                        <div className="empty-state-icon">
+                            <FileText size={24} />
+                        </div>
+                        <h3 style={{ marginBottom: "8px" }}>No Active Submissions</h3>
+                        <p style={{ marginBottom: "20px" }}>
+                            You have not submitted any technical challenges yet.
+                        </p>
+                        <button className="buttons" onClick={() => navigate("/submit")}>
+                            <Plus size={16} />
+                            <span>Create First Submission</span>
                         </button>
                     </div>
                 ) : (
-                    <ul className="problems-list">
+                    <div className="problems-grid">
                         {problems.map((problem) => (
-                            <li key={problem.id} className="problem-card my-problem-card">
-                                <h3>{problem.title}</h3>
-                                <div className="problem-card-content">
-                                    <p><strong>Summary:</strong> {problem.summary}</p>
-                                    <p><strong>Solution:</strong> {problem.solution}</p>
-                                    <p><strong>Explanation:</strong> {problem.explanation}</p>
-                                    <p className="problem-meta">
-                                        <strong>Posted on:</strong> {new Date(problem.created_at).toLocaleDateString()} |
-                                        <strong> Email Shared:</strong> {problem.show_email ? "Yes" : "No"} |
-                                        <strong> Phone Shared:</strong> {problem.show_phone ? "Yes" : "No"} |
-                                        <strong> Direct Request Allowed:</strong> {problem.contact_request ? "Yes" : "No"}
-                                    </p>
+                            <div key={problem.id} className="problem-card">
+                                <div>
+                                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '10px' }}>
+                                        <span className={`badge ${problem.contact_request ? 'badge-amber' : 'badge-emerald'}`}>
+                                            {problem.contact_request ? <Lock size={12} /> : <Zap size={12} />}
+                                            <span>{problem.contact_request ? 'Approval Required' : 'Direct Contact'}</span>
+                                        </span>
+                                        {problem.show_email && (
+                                            <span className="badge badge-indigo">
+                                                <Mail size={12} />
+                                                <span>Email</span>
+                                            </span>
+                                        )}
+                                        {problem.show_phone && (
+                                            <span className="badge badge-indigo">
+                                                <Phone size={12} />
+                                                <span>Phone</span>
+                                            </span>
+                                        )}
+                                    </div>
+                                    <h3>{problem.title}</h3>
+                                    <p className="problem-summary-preview">{problem.summary}</p>
                                 </div>
-                                <div className="problem-actions">
-                                    <button
-                                        className="buttons edit-btn"
-                                        onClick={() => handleOpenEdit(problem)}
-                                    >
-                                        Edit
-                                    </button>
-                                    <button
-                                        className="buttons delete-btn"
-                                        onClick={() => setDeletingProblem(problem)}
-                                    >
-                                        Delete
-                                    </button>
+
+                                <div>
+                                    <div className="problem-card-footer" style={{ marginBottom: '12px', marginTop: '10px' }}>
+                                        <span style={{ fontSize: '0.8rem', color: '#64748b', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                            <Calendar size={12} />
+                                            <span>{new Date(problem.created_at).toLocaleDateString()}</span>
+                                        </span>
+                                    </div>
+                                    <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                                        <button
+                                            className="buttons buttons-secondary"
+                                            onClick={() => handleOpenEdit(problem)}
+                                            style={{ padding: '7px 12px', fontSize: '0.84rem' }}
+                                        >
+                                            <Edit3 size={14} />
+                                            <span>Edit</span>
+                                        </button>
+                                        <button
+                                            className="buttons danger-btn"
+                                            onClick={() => setDeletingProblem(problem)}
+                                            style={{ padding: '7px 12px', fontSize: '0.84rem' }}
+                                        >
+                                            <Trash2 size={14} />
+                                            <span>Delete</span>
+                                        </button>
+                                    </div>
                                 </div>
-                            </li>
+                            </div>
                         ))}
-                    </ul>
+                    </div>
                 )}
 
-                {editingProblem && (
+                {/* Edit Modal */}
+                {editingProblem && createPortal(
                     <div className="modal-overlay" onClick={() => setEditingProblem(null)}>
-                        <div className="modal-content edit-modal-content" onClick={(e) => e.stopPropagation()}>
+                        <div className="modal-content" onClick={(e) => e.stopPropagation()}>
                             <button className="close-button" onClick={() => setEditingProblem(null)}>
-                                ✖
+                                <X size={18} />
                             </button>
-                            <h2>Edit Problem</h2>
-                            <form className="edit-problem-form" onSubmit={handleSaveEdit}>
-                                <div>
-                                    <label><strong>Title:</strong></label>
-                                    <textarea
+                            <h2 style={{ marginBottom: '16px' }}>Edit Submission</h2>
+                            
+                            <form onSubmit={handleSaveEdit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                <div className="form-group">
+                                    <label>Title</label>
+                                    <input
+                                        type="text"
+                                        className="form-input"
                                         value={editTitle}
                                         onChange={(e) => setEditTitle(e.target.value)}
-                                        rows={2}
                                         required
                                     />
                                 </div>
-                                <div>
-                                    <label><strong>Summary:</strong></label>
+                                <div className="form-group">
+                                    <label>Executive Summary</label>
                                     <textarea
+                                        className="form-textarea"
                                         value={editSummary}
                                         onChange={(e) => setEditSummary(e.target.value)}
                                         rows={3}
                                         required
                                     />
                                 </div>
-                                <div>
-                                    <label><strong>Solution:</strong></label>
+                                <div className="form-group">
+                                    <label>Target Solution & Outcome</label>
                                     <textarea
+                                        className="form-textarea"
                                         value={editSolution}
                                         onChange={(e) => setEditSolution(e.target.value)}
                                         rows={3}
                                     />
                                 </div>
-                                <div>
-                                    <label><strong>Explanation:</strong></label>
+                                <div className="form-group">
+                                    <label>Detailed Explanation</label>
                                     <textarea
+                                        className="form-textarea"
                                         value={editExplanation}
                                         onChange={(e) => setEditExplanation(e.target.value)}
                                         rows={3}
                                     />
                                 </div>
-                                <div className="checkbox-group">
-                                    <label>
+
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', margin: '8px 0' }}>
+                                    <label className="checkbox-group">
                                         <input
                                             type="checkbox"
                                             checked={editShowEmail}
                                             onChange={(e) => setEditShowEmail(e.target.checked)}
                                         />
-                                        Show Contact Email
+                                        <span>Display contact email to authorized developers</span>
                                     </label>
-                                </div>
-                                <div className="checkbox-group">
-                                    <label>
+                                    <label className="checkbox-group">
                                         <input
                                             type="checkbox"
                                             checked={editShowPhone}
                                             onChange={(e) => setEditShowPhone(e.target.checked)}
                                         />
-                                        Show Contact Phone
+                                        <span>Display contact phone number to authorized developers</span>
                                     </label>
-                                </div>
-                                <div className="checkbox-group">
-                                    <label>
+                                    <label className="checkbox-group">
                                         <input
                                             type="checkbox"
                                             checked={editContactRequest}
                                             onChange={(e) => setEditContactRequest(e.target.checked)}
                                         />
-                                        Allow Contact Requests
+                                        <span>Require authorization approval before releasing contact details</span>
                                     </label>
                                 </div>
-                                <div className="modal-actions">
-                                    <button type="submit" className="button" disabled={saving}>
-                                        {saving ? "Saving..." : "Save Changes"}
+
+                                <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '12px' }}>
+                                    <button type="submit" className="buttons" disabled={saving}>
+                                        <span>{saving ? "Saving..." : "Save Changes"}</span>
                                     </button>
                                     <button
                                         type="button"
-                                        className="buttons"
+                                        className="buttons buttons-secondary"
                                         onClick={() => setEditingProblem(null)}
                                     >
                                         Cancel
@@ -280,33 +331,42 @@ export default function MyProblems() {
                                 </div>
                             </form>
                         </div>
-                    </div>
+                    </div>,
+                    document.body
                 )}
 
                 {/* Delete Confirmation Modal */}
-                {deletingProblem && (
+                {deletingProblem && createPortal(
                     <div className="modal-overlay" onClick={() => setDeletingProblem(null)}>
-                        <div className="modal-content delete-modal-content" onClick={(e) => e.stopPropagation()}>
-                            <h2>Confirm Deletion</h2>
-                            <p>Are you sure you want to delete <strong>"{deletingProblem.title}"</strong>?</p>
-                            <p className="warning-text">This action cannot be undone.</p>
-                            <div className="modal-actions">
+                        <div className="modal-content" style={{ maxWidth: '440px' }} onClick={(e) => e.stopPropagation()}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#f87171', marginBottom: '12px' }}>
+                                <AlertTriangle size={22} />
+                                <h2>Confirm Deletion</h2>
+                            </div>
+                            <p style={{ marginBottom: '12px', color: '#cbd5e1' }}>
+                                Are you sure you want to delete <strong>"{deletingProblem.title}"</strong>?
+                            </p>
+                            <p style={{ color: '#94a3b8', fontSize: '0.85rem', marginBottom: '24px' }}>
+                                This action will remove the submission permanently from the marketplace.
+                            </p>
+                            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
                                 <button
-                                    className="button danger-btn"
+                                    className="buttons danger-btn"
                                     onClick={handleDelete}
                                     disabled={deleting}
                                 >
-                                    {deleting ? "Deleting..." : "Yes, Delete"}
+                                    <span>{deleting ? "Deleting..." : "Confirm Delete"}</span>
                                 </button>
                                 <button
-                                    className="buttons"
+                                    className="buttons buttons-secondary"
                                     onClick={() => setDeletingProblem(null)}
                                 >
                                     Cancel
                                 </button>
                             </div>
                         </div>
-                    </div>
+                    </div>,
+                    document.body
                 )}
             </div>
         </div>
