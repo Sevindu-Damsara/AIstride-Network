@@ -53,7 +53,8 @@ export default function PostProblem() {
             user_id: user.id,
             show_email: showEmail,
             show_phone: showPhone,
-            contact_request: contactRequest
+            contact_request: contactRequest,
+            status: "open"
         });
 
         setSubmitting(false);

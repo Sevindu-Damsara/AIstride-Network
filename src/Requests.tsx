@@ -1,5 +1,5 @@
 import { supabase } from "./utils/supabase";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-hot-toast";
 import Sidebar from "./Sidebar";
@@ -13,7 +13,8 @@ import {
     Mail,
     Phone,
     Check,
-    X
+    X,
+    MessageSquare
 } from "lucide-react";
 
 export default function Requests() {
@@ -23,44 +24,84 @@ export default function Requests() {
     const navigate = useNavigate();
 
     const handleUpdateStatus = async (requestId: string, status: "approved" | "declined") => {
-        const { error } = await supabase.from("contact_requests").update({ status }).eq("id", requestId);
+        const { data: updatedRows, error } = await supabase
+            .from("contact_requests")
+            .update({ status })
+            .eq("id", requestId)
+            .select();
+
         if (error) {
-            toast.error("Error updating request status.");
+            toast.error("Error updating request status: " + error.message);
+        } else if (!updatedRows || updatedRows.length === 0) {
+            toast.error("Update failed: No permission or record not found.");
         } else {
             toast.success(`Request ${status} successfully.`);
             setData(data.map((request) => request.id === requestId ? { ...request, status } : request));
         }
     };
 
+    const fetchRequests = useCallback(async () => {
+        const { data: { user }, error: userError } = await supabase.auth.getUser();
+        if (userError || !user) {
+            toast.error("Authentication required to view contact requests.");
+            navigate('/login');
+            return;
+        }
+        setUser(user.id);
+        const { data, error } = await supabase
+            .from("contact_requests")
+            .select(`
+                *,
+                problems(title),
+                client_profile:profiles!contact_requests_client_id_fkey(full_name, contact_email, phone),
+                developer_profile:profiles!contact_requests_developer_id_fkey(full_name, contact_email, phone)
+            `)
+            .or(`client_id.eq.${user.id},developer_id.eq.${user.id}`)
+            .order("created_at", { ascending: false });
+        if (error) {
+            toast.error("Error loading contact requests.");
+        } else {
+            setData(data || []);
+        }
+        setLoading(false);
+    }, [navigate]);
+
     useEffect(() => {
         setLoading(true);
-        const fetchRequests = async () => {
-            const { data: { user }, error: userError } = await supabase.auth.getUser();
-            if (userError || !user) {
-                toast.error("Authentication required to view contact requests.");
-                navigate('/login');
-                return;
-            }
-            setUser(user.id);
-            const { data, error } = await supabase
-                .from("contact_requests")
-                .select(`
-                    *,
-                    problems(title),
-                    client_profile:profiles!contact_requests_client_id_fkey(full_name, contact_email, phone),
-                    developer_profile:profiles!contact_requests_developer_id_fkey(full_name, contact_email, phone)
-                `)
-                .or(`client_id.eq.${user.id},developer_id.eq.${user.id}`)
-                .order("created_at", { ascending: false });
-            if (error) {
-                toast.error("Error loading contact requests.");
-            } else {
-                setData(data || []);
-            }
-            setLoading(false);
-        };
         fetchRequests();
-    }, [navigate]);
+
+        let channel: any;
+        supabase.auth.getUser().then(({ data: { user } }) => {
+            if (user) {
+                channel = supabase
+                    .channel(`requests_realtime_${user.id}`)
+                    .on(
+                        'postgres_changes',
+                        { event: '*', schema: 'public', table: 'contact_requests' },
+                        (payload) => {
+                            if (payload.eventType === 'INSERT' && payload.new.client_id === user.id) {
+                                toast.success("New contact authorization request received!", { icon: "📩" });
+                                fetchRequests();
+                            } else if (payload.eventType === 'UPDATE') {
+                                if (payload.new.developer_id === user.id) {
+                                    toast.success(`Your contact authorization request was ${payload.new.status}!`);
+                                    fetchRequests();
+                                } else if (payload.new.client_id === user.id) {
+                                    fetchRequests();
+                                }
+                            }
+                        }
+                    )
+                    .subscribe();
+            }
+        });
+
+        return () => {
+            if (channel) {
+                supabase.removeChannel(channel);
+            }
+        };
+    }, [fetchRequests]);
 
     return (
         <div>
@@ -115,10 +156,22 @@ export default function Requests() {
                                             {request.problems?.title || "Untitled Problem"}
                                         </h3>
 
-                                        <p style={{ color: '#cbd5e1', fontSize: '0.9rem', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                        <p style={{ color: '#cbd5e1', fontSize: '0.9rem', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                             <User size={14} style={{ color: '#94a3b8' }} />
                                             <span><strong>{isClient ? "Developer:" : "Client:"}</strong> {otherPartyName}</span>
                                         </p>
+
+                                        {request.message && (
+                                            <div style={{ marginTop: '10px', marginBottom: '12px', padding: '10px 12px', background: '#0f172a', border: '1px solid rgba(129, 140, 248, 0.25)', borderRadius: '8px' }}>
+                                                <p style={{ margin: '0 0 4px', color: '#818cf8', fontSize: '0.8rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                    <MessageSquare size={12} />
+                                                    <span>Developer Pitch / Proposed Approach:</span>
+                                                </p>
+                                                <p style={{ margin: 0, color: '#e2e8f0', fontSize: '0.85rem', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
+                                                    {request.message}
+                                                </p>
+                                            </div>
+                                        )}
 
                                         {request.status === "pending" && isClient && (
                                             <div style={{ display: 'flex', gap: '10px', marginTop: '16px' }}>
@@ -145,7 +198,7 @@ export default function Requests() {
                                             <div style={{ marginTop: "14px", padding: "12px", backgroundColor: "#0f172a", border: "1px solid rgba(16, 185, 129, 0.25)", borderRadius: "8px" }}>
                                                 <p style={{ color: "#34d399", fontWeight: 600, marginBottom: "8px", fontSize: "0.85rem", display: 'flex', alignItems: 'center', gap: '6px' }}>
                                                     <CheckCircle2 size={14} />
-                                                    <span>{isClient ? "Authorization Granted" : "Authorization Granted"}</span>
+                                                    <span>Authorization Granted</span>
                                                 </p>
                                                 <div style={{ fontSize: "0.85rem", color: "#f1f5f9", display: "flex", flexDirection: "column", gap: "4px" }}>
                                                     <span><strong>Contact:</strong> {otherPartyName}</span>

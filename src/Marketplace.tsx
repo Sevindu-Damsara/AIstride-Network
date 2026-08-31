@@ -4,45 +4,73 @@ import ProblemCard from "./ProblemCard";
 import Sidebar from "./Sidebar";
 import { SkeletonGrid } from "./SkeletonCard";
 import { toast } from "react-hot-toast";
-import { Search, Filter, Layers, RotateCcw, FileQuestion } from "lucide-react";
+import { Search, Filter, Layers, RotateCcw, FileQuestion, ChevronLeft, ChevronRight } from "lucide-react";
+
+const PAGE_SIZE = 6;
 
 export default function Marketplace() {
     const [problems, setProblems] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
     const [filterContactType, setFilterContactType] = useState<"all" | "request" | "direct">("all");
+    const [filterStatus, setFilterStatus] = useState<string>("all");
+    const [currentPage, setCurrentPage] = useState<number>(0);
+    const [totalCount, setTotalCount] = useState<number>(0);
 
     useEffect(() => {
         setLoading(true);
         const fetchProblems = async () => {
-            const { data, error } = await supabase
+            let query = supabase
                 .from("problems")
-                .select("*")
+                .select("*", { count: "exact" })
                 .order("created_at", { ascending: false });
 
+            if (filterContactType === "request") {
+                query = query.eq("contact_request", true);
+            } else if (filterContactType === "direct") {
+                query = query.eq("contact_request", false);
+            }
+
+            if (filterStatus !== "all") {
+                query = query.eq("status", filterStatus);
+            }
+
+            const from = currentPage * PAGE_SIZE;
+            const to = from + PAGE_SIZE - 1;
+            query = query.range(from, to);
+
+            const { data, count, error } = await query;
+
             if (error) {
-                toast.error("Error loading marketplace data.");
+                toast.error("Error loading marketplace data: " + error.message);
             } else {
                 setProblems(data || []);
+                setTotalCount(count || 0);
             }
             setLoading(false);
         };
         fetchProblems();
-    }, []);
+    }, [currentPage, filterContactType, filterStatus]);
+
+    // Handle filter reset
+    const handleResetFilters = () => {
+        setSearchQuery("");
+        setFilterContactType("all");
+        setFilterStatus("all");
+        setCurrentPage(0);
+    };
 
     const filteredProblems = problems.filter((item) => {
-        const matchesSearch =
-            (item.title || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-            (item.summary || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-            (item.solution || "").toLowerCase().includes(searchQuery.toLowerCase());
-
-        if (!matchesSearch) return false;
-
-        if (filterContactType === "request") return item.contact_request === true;
-        if (filterContactType === "direct") return item.contact_request === false;
-
-        return true;
+        if (!searchQuery.trim()) return true;
+        const q = searchQuery.toLowerCase();
+        return (
+            (item.title || "").toLowerCase().includes(q) ||
+            (item.summary || "").toLowerCase().includes(q) ||
+            (item.solution || "").toLowerCase().includes(q)
+        );
     });
+
+    const totalPages = Math.ceil(totalCount / PAGE_SIZE) || 1;
 
     return (
         <div>
@@ -56,13 +84,13 @@ export default function Marketplace() {
                     {!loading && (
                         <div className="badge badge-indigo">
                             <Layers size={14} />
-                            <span>{problems.length} {problems.length === 1 ? "Problem Listed" : "Problems Listed"}</span>
+                            <span>{totalCount} {totalCount === 1 ? "Problem Listed" : "Problems Listed"}</span>
                         </div>
                     )}
                 </div>
 
-                <div className="controls-bar">
-                    <div className="search-input-wrapper">
+                <div className="controls-bar" style={{ flexWrap: 'wrap', gap: '12px' }}>
+                    <div className="search-input-wrapper" style={{ flex: '1 1 300px' }}>
                         <div className="search-input-icon">
                             <Search size={18} />
                         </div>
@@ -75,16 +103,35 @@ export default function Marketplace() {
                         />
                     </div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <Filter size={16} style={{ color: '#94a3b8' }} />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <Filter size={16} style={{ color: '#94a3b8' }} />
+                            <select
+                                className="form-select"
+                                value={filterContactType}
+                                onChange={(e) => {
+                                    setFilterContactType(e.target.value as any);
+                                    setCurrentPage(0);
+                                }}
+                            >
+                                <option value="all">All Protocols</option>
+                                <option value="request">Approval Required</option>
+                                <option value="direct">Direct Contact Allowed</option>
+                            </select>
+                        </div>
+
                         <select
                             className="form-select"
-                            value={filterContactType}
-                            onChange={(e) => setFilterContactType(e.target.value as any)}
+                            value={filterStatus}
+                            onChange={(e) => {
+                                setFilterStatus(e.target.value);
+                                setCurrentPage(0);
+                            }}
                         >
-                            <option value="all">All Contact Protocols</option>
-                            <option value="request">Approval Required</option>
-                            <option value="direct">Direct Contact Allowed</option>
+                            <option value="all">All Statuses</option>
+                            <option value="open">Open</option>
+                            <option value="in_review">In Review</option>
+                            <option value="resolved">Resolved</option>
                         </select>
                     </div>
                 </div>
@@ -98,12 +145,12 @@ export default function Marketplace() {
                         </div>
                         <h3 style={{ marginBottom: "8px" }}>No matching problems found</h3>
                         <p style={{ marginBottom: "20px" }}>
-                            No problems match your query. Try broadening your keywords or clearing contact filters.
+                            No problems match your query. Try broadening your keywords or clearing filters.
                         </p>
-                        {(searchQuery || filterContactType !== "all") && (
+                        {(searchQuery || filterContactType !== "all" || filterStatus !== "all") && (
                             <button
                                 className="buttons buttons-secondary"
-                                onClick={() => { setSearchQuery(""); setFilterContactType("all"); }}
+                                onClick={handleResetFilters}
                             >
                                 <RotateCcw size={16} />
                                 <span>Reset Filters</span>
@@ -111,11 +158,42 @@ export default function Marketplace() {
                         )}
                     </div>
                 ) : (
-                    <div className="problems-grid">
-                        {filteredProblems.map((singleProblem) => (
-                            <ProblemCard key={singleProblem.id} problem={singleProblem} />
-                        ))}
-                    </div>
+                    <>
+                        <div className="problems-grid">
+                            {filteredProblems.map((singleProblem) => (
+                                <ProblemCard key={singleProblem.id} problem={singleProblem} />
+                            ))}
+                        </div>
+
+                        {/* Pagination Controls */}
+                        {totalPages > 1 && (
+                            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '16px', marginTop: '32px', padding: '16px 0' }}>
+                                <button
+                                    className="buttons buttons-secondary"
+                                    onClick={() => setCurrentPage((prev) => Math.max(0, prev - 1))}
+                                    disabled={currentPage === 0}
+                                    style={{ padding: '8px 14px', opacity: currentPage === 0 ? 0.5 : 1 }}
+                                >
+                                    <ChevronLeft size={16} />
+                                    <span>Previous</span>
+                                </button>
+
+                                <span style={{ color: '#94a3b8', fontSize: '0.88rem', fontWeight: 500 }}>
+                                    Page <strong style={{ color: '#f1f5f9' }}>{currentPage + 1}</strong> of {totalPages}
+                                </span>
+
+                                <button
+                                    className="buttons buttons-secondary"
+                                    onClick={() => setCurrentPage((prev) => Math.min(totalPages - 1, prev + 1))}
+                                    disabled={currentPage >= totalPages - 1}
+                                    style={{ padding: '8px 14px', opacity: currentPage >= totalPages - 1 ? 0.5 : 1 }}
+                                >
+                                    <span>Next</span>
+                                    <ChevronRight size={16} />
+                                </button>
+                            </div>
+                        )}
+                    </>
                 )}
             </div>
         </div>

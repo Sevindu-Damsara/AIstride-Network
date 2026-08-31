@@ -16,7 +16,9 @@ import {
     Zap,
     X,
     AlertTriangle,
-    FileText
+    FileText,
+    CheckCircle2,
+    Clock
 } from "lucide-react";
 
 export interface Problem {
@@ -30,6 +32,7 @@ export interface Problem {
     show_email: boolean;
     show_phone: boolean;
     contact_request: boolean;
+    status?: "open" | "in_review" | "resolved" | string;
 }
 
 export default function MyProblems() {
@@ -45,6 +48,7 @@ export default function MyProblems() {
     const [editShowEmail, setEditShowEmail] = useState(false);
     const [editShowPhone, setEditShowPhone] = useState(false);
     const [editContactRequest, setEditContactRequest] = useState(false);
+    const [editStatus, setEditStatus] = useState<string>("open");
     const [saving, setSaving] = useState(false);
 
     const [deletingProblem, setDeletingProblem] = useState<Problem | null>(null);
@@ -91,6 +95,7 @@ export default function MyProblems() {
         setEditShowEmail(problem.show_email ?? false);
         setEditShowPhone(problem.show_phone ?? false);
         setEditContactRequest(problem.contact_request ?? false);
+        setEditStatus(problem.status || "open");
     };
 
     const handleSaveEdit = async (e: React.FormEvent) => {
@@ -103,7 +108,7 @@ export default function MyProblems() {
         }
 
         setSaving(true);
-        const { error } = await supabase
+        const { data, error } = await supabase
             .from("problems")
             .update({
                 title: editTitle,
@@ -113,14 +118,18 @@ export default function MyProblems() {
                 show_email: editShowEmail,
                 show_phone: editShowPhone,
                 contact_request: editContactRequest,
+                status: editStatus
             })
             .eq("id", editingProblem.id)
-            .eq("user_id", userId);
+            .eq("user_id", userId)
+            .select();
 
         setSaving(false);
 
         if (error) {
             toast.error("Error updating submission: " + error.message);
+        } else if (!data || data.length === 0) {
+            toast.error("Update failed: No rows updated. Please ensure column 'status' exists in your Supabase DB.");
         } else {
             toast.success("Submission updated successfully.");
             setEditingProblem(null);
@@ -128,25 +137,72 @@ export default function MyProblems() {
         }
     };
 
+    const handleQuickStatusUpdate = async (problemId: string, newStatus: string) => {
+        if (!userId) return;
+        const { data, error } = await supabase
+            .from("problems")
+            .update({ status: newStatus })
+            .eq("id", problemId)
+            .eq("user_id", userId)
+            .select();
+
+        if (error) {
+            toast.error("Error updating status: " + error.message);
+        } else if (!data || data.length === 0) {
+            toast.error("Status update failed: Column 'status' missing in DB or permission denied.");
+        } else {
+            toast.success(`Problem status changed to ${newStatus.replace("_", " ")}.`);
+            setProblems(prev => prev.map(p => p.id === problemId ? { ...p, status: newStatus } : p));
+        }
+    };
+
     const handleDelete = async () => {
         if (!deletingProblem || !userId) return;
 
         setDeleting(true);
-        const { error } = await supabase
+        const { data, error } = await supabase
             .from("problems")
             .delete()
             .eq("id", deletingProblem.id)
-            .eq("user_id", userId);
+            .eq("user_id", userId)
+            .select();
 
         setDeleting(false);
 
         if (error) {
             toast.error("Error deleting submission: " + error.message);
+        } else if (!data || data.length === 0) {
+            toast.error("Delete failed: Record not found or permission denied.");
         } else {
             toast.success("Submission deleted successfully.");
             setProblems((prev) => prev.filter((p) => p.id !== deletingProblem.id));
             setDeletingProblem(null);
         }
+    };
+
+    const getStatusBadge = (statusStr: string) => {
+        if (statusStr === "resolved") {
+            return (
+                <span className="badge badge-emerald">
+                    <CheckCircle2 size={12} />
+                    <span>Resolved</span>
+                </span>
+            );
+        }
+        if (statusStr === "in_review") {
+            return (
+                <span className="badge badge-amber">
+                    <Clock size={12} />
+                    <span>In Review</span>
+                </span>
+            );
+        }
+        return (
+            <span className="badge badge-indigo">
+                <Zap size={12} />
+                <span>Open</span>
+            </span>
+        );
     };
 
     return (
@@ -185,59 +241,87 @@ export default function MyProblems() {
                     </div>
                 ) : (
                     <div className="problems-grid">
-                        {problems.map((problem) => (
-                            <div key={problem.id} className="problem-card">
-                                <div>
-                                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '10px' }}>
-                                        <span className={`badge ${problem.contact_request ? 'badge-amber' : 'badge-emerald'}`}>
-                                            {problem.contact_request ? <Lock size={12} /> : <Zap size={12} />}
-                                            <span>{problem.contact_request ? 'Approval Required' : 'Direct Contact'}</span>
-                                        </span>
-                                        {problem.show_email && (
-                                            <span className="badge badge-indigo">
-                                                <Mail size={12} />
-                                                <span>Email</span>
+                        {problems.map((problem) => {
+                            const pStatus = problem.status || "open";
+                            return (
+                                <div key={problem.id} className="problem-card">
+                                    <div>
+                                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '10px' }}>
+                                            <span className={`badge ${problem.contact_request ? 'badge-amber' : 'badge-emerald'}`}>
+                                                {problem.contact_request ? <Lock size={12} /> : <Zap size={12} />}
+                                                <span>{problem.contact_request ? 'Approval Required' : 'Direct Contact'}</span>
                                             </span>
-                                        )}
-                                        {problem.show_phone && (
-                                            <span className="badge badge-indigo">
-                                                <Phone size={12} />
-                                                <span>Phone</span>
-                                            </span>
-                                        )}
+                                            {getStatusBadge(pStatus)}
+                                            {problem.show_email && (
+                                                <span className="badge badge-indigo">
+                                                    <Mail size={12} />
+                                                    <span>Email</span>
+                                                </span>
+                                            )}
+                                            {problem.show_phone && (
+                                                <span className="badge badge-indigo">
+                                                    <Phone size={12} />
+                                                    <span>Phone</span>
+                                                </span>
+                                            )}
+                                        </div>
+                                        <h3>{problem.title}</h3>
+                                        <p className="problem-summary-preview">{problem.summary}</p>
                                     </div>
-                                    <h3>{problem.title}</h3>
-                                    <p className="problem-summary-preview">{problem.summary}</p>
-                                </div>
 
-                                <div>
-                                    <div className="problem-card-footer" style={{ marginBottom: '12px', marginTop: '10px' }}>
-                                        <span style={{ fontSize: '0.8rem', color: '#64748b', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                            <Calendar size={12} />
-                                            <span>{new Date(problem.created_at).toLocaleDateString()}</span>
-                                        </span>
-                                    </div>
-                                    <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-                                        <button
-                                            className="buttons buttons-secondary"
-                                            onClick={() => handleOpenEdit(problem)}
-                                            style={{ padding: '7px 12px', fontSize: '0.84rem' }}
-                                        >
-                                            <Edit3 size={14} />
-                                            <span>Edit</span>
-                                        </button>
-                                        <button
-                                            className="buttons danger-btn"
-                                            onClick={() => setDeletingProblem(problem)}
-                                            style={{ padding: '7px 12px', fontSize: '0.84rem' }}
-                                        >
-                                            <Trash2 size={14} />
-                                            <span>Delete</span>
-                                        </button>
+                                    <div>
+                                        <div className="problem-card-footer" style={{ marginBottom: '12px', marginTop: '10px' }}>
+                                            <span style={{ fontSize: '0.8rem', color: '#64748b', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                <Calendar size={12} />
+                                                <span>{new Date(problem.created_at).toLocaleDateString()}</span>
+                                            </span>
+
+                                            {/* Quick Status Toggle Button */}
+                                            {pStatus !== "resolved" ? (
+                                                <button
+                                                    onClick={() => handleQuickStatusUpdate(problem.id, "resolved")}
+                                                    className="buttons badge-emerald"
+                                                    style={{ padding: '4px 8px', fontSize: '0.78rem', background: 'rgba(16, 185, 129, 0.15)', color: '#34d399', border: '1px solid rgba(16, 185, 129, 0.3)' }}
+                                                    title="Mark this problem as successfully solved"
+                                                >
+                                                    <CheckCircle2 size={12} />
+                                                    <span>Mark Resolved</span>
+                                                </button>
+                                            ) : (
+                                                <button
+                                                    onClick={() => handleQuickStatusUpdate(problem.id, "open")}
+                                                    className="buttons badge-indigo"
+                                                    style={{ padding: '4px 8px', fontSize: '0.78rem', background: 'rgba(99, 102, 241, 0.15)', color: '#818cf8', border: '1px solid rgba(99, 102, 241, 0.3)' }}
+                                                    title="Re-open this problem"
+                                                >
+                                                    <Zap size={12} />
+                                                    <span>Re-open</span>
+                                                </button>
+                                            )}
+                                        </div>
+
+                                        <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                                            <button
+                                                className="buttons buttons-secondary"
+                                                onClick={() => handleOpenEdit(problem)}
+                                                style={{ padding: '7px 12px', fontSize: '0.84rem' }}
+                                            >
+                                                <Edit3 size={14} />
+                                                <span>Edit</span>
+                                            </button>
+                                            <button
+                                                className="buttons danger-btn"
+                                                onClick={() => setDeletingProblem(problem)}
+                                                style={{ padding: '7px 12px', fontSize: '0.84rem' }}
+                                            >
+                                                <Trash2 size={14} />
+                                                <span>Delete</span>
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 )}
 
@@ -271,6 +355,20 @@ export default function MyProblems() {
                                         required
                                     />
                                 </div>
+
+                                <div className="form-group">
+                                    <label>Problem Status Lifecycle</label>
+                                    <select
+                                        className="form-select"
+                                        value={editStatus}
+                                        onChange={(e) => setEditStatus(e.target.value)}
+                                    >
+                                        <option value="open">Open (Active Marketplace)</option>
+                                        <option value="in_review">In Review (Evaluating Proposals)</option>
+                                        <option value="resolved">Resolved (Partner Matched / Solved)</option>
+                                    </select>
+                                </div>
+
                                 <div className="form-group">
                                     <label>Target Solution & Outcome</label>
                                     <textarea
@@ -281,7 +379,7 @@ export default function MyProblems() {
                                     />
                                 </div>
                                 <div className="form-group">
-                                    <label>Detailed Explanation</label>
+                                    <label>Detailed Explanation (Supports Markdown)</label>
                                     <textarea
                                         className="form-textarea"
                                         value={editExplanation}
@@ -372,3 +470,4 @@ export default function MyProblems() {
         </div>
     );
 }
+

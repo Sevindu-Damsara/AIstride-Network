@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { supabase } from './utils/supabase';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
+import ReactMarkdown from 'react-markdown';
 import {
     Lock,
     Zap,
@@ -16,7 +17,8 @@ import {
     User,
     Mail,
     Phone,
-    Info
+    Info,
+    MessageSquare
 } from 'lucide-react';
 
 interface Problems {
@@ -30,6 +32,7 @@ interface Problems {
     show_email: boolean;
     show_phone: boolean;
     contact_request: boolean;
+    status?: "open" | "in_review" | "resolved" | string;
 }
 
 interface ProblemCardProps {
@@ -43,10 +46,21 @@ export default function ProblemCard({ problem }: ProblemCardProps) {
     const [requestStatus, setRequestStatus] = useState<"pending" | "approved" | "declined" | null>(null);
     const [userName, setUserName] = useState<string>("");
     const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+    
+    // Pitch proposal states
+    const [showPitchInput, setShowPitchInput] = useState<boolean>(false);
+    const [pitchMessage, setPitchMessage] = useState<string>("");
+    const [submittingPitch, setSubmittingPitch] = useState<boolean>(false);
+
     const navigate = useNavigate();
 
     const getRequestStatus = async (problemId: string, developerId: string) => {
-        const { data, error } = await supabase.from("contact_requests").select("status").eq("problem_id", problemId).eq("developer_id", developerId).maybeSingle();
+        const { data, error } = await supabase
+            .from("contact_requests")
+            .select("status")
+            .eq("problem_id", problemId)
+            .eq("developer_id", developerId)
+            .maybeSingle();
         if (!error) {
             setRequestStatus(data?.status ?? null);
         }
@@ -93,18 +107,23 @@ export default function ProblemCard({ problem }: ProblemCardProps) {
             return;
         }
 
+        setSubmittingPitch(true);
         const { error } = await supabase.from("contact_requests").insert({
             problem_id: problemId,
             client_id: clientId,
             developer_id: user.id,
-            status: "pending"
+            status: "pending",
+            message: pitchMessage.trim() || null
         });
+        setSubmittingPitch(false);
 
         if (error) {
             toast.error("Request submission failed: " + error.message);
         } else {
-            toast.success("Contact authorization request submitted successfully.");
+            toast.success("Contact authorization request & pitch proposal submitted successfully.");
             setRequestStatus("pending");
+            setShowPitchInput(false);
+            setPitchMessage("");
         }
     };
 
@@ -115,14 +134,44 @@ export default function ProblemCard({ problem }: ProblemCardProps) {
         year: 'numeric'
     });
 
+    const currentStatus = problem.status || "open";
+
+    const getStatusBadge = (statusStr: string) => {
+        if (statusStr === "resolved") {
+            return (
+                <span className="badge badge-emerald">
+                    <CheckCircle2 size={12} />
+                    <span>Resolved</span>
+                </span>
+            );
+        }
+        if (statusStr === "in_review") {
+            return (
+                <span className="badge badge-amber">
+                    <Clock size={12} />
+                    <span>In Review</span>
+                </span>
+            );
+        }
+        return (
+            <span className="badge badge-indigo">
+                <Zap size={12} />
+                <span>Open</span>
+            </span>
+        );
+    };
+
     return (
         <div className="problem-card">
             <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                    <span className={`badge ${problem.contact_request ? 'badge-amber' : 'badge-emerald'}`}>
-                        {problem.contact_request ? <Lock size={12} /> : <Zap size={12} />}
-                        <span>{problem.contact_request ? 'Approval Required' : 'Direct Contact'}</span>
-                    </span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '6px' }}>
+                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                        <span className={`badge ${problem.contact_request ? 'badge-amber' : 'badge-emerald'}`}>
+                            {problem.contact_request ? <Lock size={12} /> : <Zap size={12} />}
+                            <span>{problem.contact_request ? 'Approval Required' : 'Direct Contact'}</span>
+                        </span>
+                        {getStatusBadge(currentStatus)}
+                    </div>
                     <span style={{ fontSize: '0.8rem', color: '#64748b', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                         <Calendar size={12} />
                         <span>{formattedDate}</span>
@@ -168,20 +217,42 @@ export default function ProblemCard({ problem }: ProblemCardProps) {
                         </button>
                         
                         <div style={{ marginBottom: '20px' }}>
-                            <span className={`badge ${problem.contact_request ? 'badge-amber' : 'badge-emerald'}`} style={{ marginBottom: '10px' }}>
-                                {problem.contact_request ? <Lock size={12} /> : <Zap size={12} />}
-                                <span>{problem.contact_request ? 'Approval Required Protocol' : 'Direct Contact Permitted'}</span>
-                            </span>
+                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '10px' }}>
+                                <span className={`badge ${problem.contact_request ? 'badge-amber' : 'badge-emerald'}`}>
+                                    {problem.contact_request ? <Lock size={12} /> : <Zap size={12} />}
+                                    <span>{problem.contact_request ? 'Approval Required Protocol' : 'Direct Contact Permitted'}</span>
+                                </span>
+                                {getStatusBadge(currentStatus)}
+                            </div>
                             <h2 style={{ margin: '8px 0 6px' }}>{problem.title}</h2>
                             <p style={{ margin: 0, padding: 0, background: 'transparent', border: 'none', color: '#94a3b8', fontSize: '0.88rem' }}>
                                 Submitted by <strong>{userName || "Client Organization"}</strong> on {formattedDate}
                             </p>
                         </div>
 
-                        <div className="problem-details">
-                            <p><strong>Executive Summary: </strong>{problem.summary}</p>
-                            <p><strong>Detailed Problem Statement: </strong>{problem.explanation}</p>
-                            <p><strong>Target Solution & Outcome: </strong>{problem.solution}</p>
+                        <div className="problem-details" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                            <div>
+                                <h4 style={{ margin: '0 0 6px', color: '#38bdf8', fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Executive Summary</h4>
+                                <p style={{ margin: 0, color: '#e2e8f0', lineHeight: 1.6 }}>{problem.summary}</p>
+                            </div>
+                            
+                            {problem.explanation && (
+                                <div>
+                                    <h4 style={{ margin: '0 0 6px', color: '#38bdf8', fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Detailed Problem Statement</h4>
+                                    <div style={{ color: '#cbd5e1', lineHeight: 1.6, background: '#0f172a', padding: '12px 16px', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                                        <ReactMarkdown>{problem.explanation}</ReactMarkdown>
+                                    </div>
+                                </div>
+                            )}
+
+                            {problem.solution && (
+                                <div>
+                                    <h4 style={{ margin: '0 0 6px', color: '#38bdf8', fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Target Solution & Outcome</h4>
+                                    <div style={{ color: '#cbd5e1', lineHeight: 1.6, background: '#0f172a', padding: '12px 16px', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                                        <ReactMarkdown>{problem.solution}</ReactMarkdown>
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
                         <div style={{ marginTop: '24px', paddingTop: '16px', borderTop: '1px solid rgba(255, 255, 255, 0.08)' }}>
@@ -195,10 +266,46 @@ export default function ProblemCard({ problem }: ProblemCardProps) {
                                     {problem.contact_request ? (
                                         <div>
                                             {requestStatus === null && (
-                                                <button className="button" onClick={() => handleRequestContact(problem.id, problem.user_id)}>
-                                                    <Send size={16} />
-                                                    <span>Request Contact Authorization</span>
-                                                </button>
+                                                <div>
+                                                    {!showPitchInput ? (
+                                                        <button className="buttons" onClick={() => setShowPitchInput(true)}>
+                                                            <Send size={16} />
+                                                            <span>Request Contact Authorization</span>
+                                                        </button>
+                                                    ) : (
+                                                        <div style={{ background: '#0f172a', padding: '16px', borderRadius: '10px', border: '1px solid rgba(99, 102, 241, 0.3)' }}>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px', color: '#818cf8', fontWeight: 600 }}>
+                                                                <MessageSquare size={16} />
+                                                                <span>Include Developer Pitch / Proposal (Optional)</span>
+                                                            </div>
+                                                            <textarea
+                                                                className="form-textarea"
+                                                                rows={3}
+                                                                placeholder="Introduce yourself, your technical skills, or proposed approach to help the client evaluate your request..."
+                                                                value={pitchMessage}
+                                                                onChange={(e) => setPitchMessage(e.target.value)}
+                                                                style={{ marginBottom: '12px' }}
+                                                            />
+                                                            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                                                                <button
+                                                                    className="buttons buttons-secondary"
+                                                                    onClick={() => setShowPitchInput(false)}
+                                                                    disabled={submittingPitch}
+                                                                >
+                                                                    Cancel
+                                                                </button>
+                                                                <button
+                                                                    className="buttons"
+                                                                    onClick={() => handleRequestContact(problem.id, problem.user_id)}
+                                                                    disabled={submittingPitch}
+                                                                >
+                                                                    <Send size={14} />
+                                                                    <span>{submittingPitch ? "Submitting..." : "Submit Authorization Request"}</span>
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
                                             )}
                                             {requestStatus === "pending" && (
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
