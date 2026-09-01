@@ -28,7 +28,7 @@ export default function Auth() {
         setLoading(true);
 
         if (isSignUp) {
-            const { data, error } = await supabase.auth.signUp({ email, password });
+            const { error } = await supabase.auth.signUp({ email, password });
             if (error) {
                 toast.error(error.message);
             } else {
