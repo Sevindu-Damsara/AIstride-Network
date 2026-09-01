@@ -51,7 +51,7 @@ export default function Sidebar() {
             <ul className={showMenu ? "sidebar-menu open" : "sidebar-menu"}>
                 <div className="sidebar-header">
                     <div className="sidebar-header-icon">
-                        <img src="/favicon.png" alt="AIstride Logo" width={30} height={30} />
+                        <img src="/favicon.png" alt="AIstride Logo" width={35} height={35} />
                     </div>
                     <span>AIstride Network</span>
                 </div>

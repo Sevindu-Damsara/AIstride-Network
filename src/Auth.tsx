@@ -61,7 +61,7 @@ export default function Auth() {
                     marginBottom: "12px",
                     boxShadow: "0 4px 16px rgba(99, 102, 241, 0.4)"
                 }}>
-                    <img src="/favicon.png" alt="AIstride Logo" width={45} height={45} />
+                    <img src="/favicon.png" alt="AIstride Logo" width={50} height={50} />
                 </div>
                 <h1 style={{ marginBottom: "6px" }}>AIstride Network</h1>
                 <p style={{ color: "#94a3b8", fontSize: "0.95rem" }}>
