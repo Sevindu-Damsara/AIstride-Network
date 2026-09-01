@@ -43,7 +43,7 @@ export default function Sidebar() {
     return (
         <aside className="sidebar">
             {showMenu && <div className="sidebar-overlay" onClick={() => setShowMenu(false)}></div>}
-            
+
             <button onClick={() => setShowMenu(!showMenu)} className="sidebar-button">
                 {showMenu ? <X size={18} /> : <Menu size={18} />}
                 <span>Menu</span>
@@ -52,7 +52,7 @@ export default function Sidebar() {
             <ul className={showMenu ? "sidebar-menu open" : "sidebar-menu"}>
                 <div className="sidebar-header">
                     <div className="sidebar-header-icon">
-                        <Zap size={18} />
+                        <img src="/favicon.png" alt="AIstride Logo" width={18} height={18} />
                     </div>
                     <span>AIstride Network</span>
                 </div>
