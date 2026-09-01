@@ -46,7 +46,7 @@ export default function ProblemCard({ problem }: ProblemCardProps) {
     const [requestStatus, setRequestStatus] = useState<"pending" | "approved" | "declined" | null>(null);
     const [userName, setUserName] = useState<string>("");
     const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-    
+
     // Pitch proposal states
     const [showPitchInput, setShowPitchInput] = useState<boolean>(false);
     const [pitchMessage, setPitchMessage] = useState<string>("");
@@ -71,7 +71,7 @@ export default function ProblemCard({ problem }: ProblemCardProps) {
         if (!error && data) {
             return data.full_name;
         }
-        return "Client Organization";
+        return "Client";
     };
 
     useEffect(() => {
@@ -215,7 +215,7 @@ export default function ProblemCard({ problem }: ProblemCardProps) {
                         <button onClick={() => setIsExpanded(false)} className="close-button">
                             <X size={18} />
                         </button>
-                        
+
                         <div style={{ marginBottom: '20px' }}>
                             <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '10px' }}>
                                 <span className={`badge ${problem.contact_request ? 'badge-amber' : 'badge-emerald'}`}>
@@ -235,7 +235,7 @@ export default function ProblemCard({ problem }: ProblemCardProps) {
                                 <h4 style={{ margin: '0 0 6px', color: '#38bdf8', fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Executive Summary</h4>
                                 <p style={{ margin: 0, color: '#e2e8f0', lineHeight: 1.6 }}>{problem.summary}</p>
                             </div>
-                            
+
                             {problem.explanation && (
                                 <div>
                                     <h4 style={{ margin: '0 0 6px', color: '#38bdf8', fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Detailed Problem Statement</h4>
