@@ -2,7 +2,7 @@ import { useState } from "react";
 import { supabase } from "./utils/supabase";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-hot-toast";
-import { LogIn, UserPlus, Zap } from "lucide-react";
+import { LogIn, UserPlus } from "lucide-react";
 
 export default function Auth() {
     const [email, setEmail] = useState("");
@@ -61,7 +61,7 @@ export default function Auth() {
                     marginBottom: "12px",
                     boxShadow: "0 4px 16px rgba(99, 102, 241, 0.4)"
                 }}>
-                    <Zap size={24} />
+                    <img src="/favicon.png" alt="AIstride Logo" width={18} height={18} />
                 </div>
                 <h1 style={{ marginBottom: "6px" }}>AIstride Network</h1>
                 <p style={{ color: "#94a3b8", fontSize: "0.95rem" }}>
