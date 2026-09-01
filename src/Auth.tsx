@@ -14,7 +14,7 @@ export default function Auth() {
 
     const handleAuth = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
-        
+
         if (password.length < 6) {
             toast.error("Password must be at least 6 characters long.");
             return;
@@ -32,12 +32,8 @@ export default function Auth() {
             if (error) {
                 toast.error(error.message);
             } else {
-                if (data.session) {
-                    toast.success("Account registered successfully.");
-                    navigate("/", { replace: true });
-                } else {
-                    toast.success("Confirmation email dispatched. Please check your inbox.");
-                }
+                toast.success("Account registered successfully.");
+                navigate("/", { replace: true });
             }
         } else {
             const { error } = await supabase.auth.signInWithPassword({ email, password });
