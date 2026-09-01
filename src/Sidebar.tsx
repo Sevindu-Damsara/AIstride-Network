@@ -12,7 +12,6 @@ import {
     LogIn,
     Menu,
     X,
-    Zap
 } from 'lucide-react';
 
 export default function Sidebar() {
