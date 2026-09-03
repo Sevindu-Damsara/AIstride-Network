@@ -32,7 +32,7 @@ export default function Auth() {
             if (error) {
                 toast.error(error.message);
             } else {
-                toast.success("Account registered successfully.");
+                toast.success("Account registered successfully. Please check your email and confirm your account via the confirmation link");
                 navigate("/", { replace: true });
             }
         } else {
